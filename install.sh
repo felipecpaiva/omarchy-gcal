@@ -53,7 +53,7 @@ echo
 echo "== 4/6: installing the plugin =="
 rm -rf "$PLUGIN_DEST"
 mkdir -p "$PLUGIN_DEST"
-cp -f "$REPO_DIR"/plugin/*.qml "$REPO_DIR/plugin/manifest.json" "$PLUGIN_DEST/"
+cp -f "$REPO_DIR"/plugin/*.qml "$REPO_DIR"/plugin/*.js "$REPO_DIR/plugin/manifest.json" "$PLUGIN_DEST/"
 omarchy plugin validate "$PLUGIN_DEST"
 
 echo
@@ -71,6 +71,23 @@ echo
 echo "== 6/6: swapping the bar widget =="
 omarchy plugin disable omarchy.clock || true
 omarchy plugin enable "$PLUGIN_ID"
+# 'plugin enable/disable' only touch the widget layout — the bar's own
+# centerAnchor setting (which widget sits pinned dead-center) is a
+# separate shell.json key that still points at the disabled stock clock
+# otherwise, discovered by actually opening the bar after install.
+SHELL_JSON="$HOME/.config/omarchy/shell.json"
+if [[ -f "$SHELL_JSON" ]]; then
+  "$SYSTEM_PYTHON" -c "
+import json
+path = '$SHELL_JSON'
+with open(path) as f:
+    data = json.load(f)
+if data.get('bar', {}).get('centerAnchor') == 'omarchy.clock':
+    data['bar']['centerAnchor'] = '$PLUGIN_ID'
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+"
+fi
 
 echo
 echo "Done. The bar now shows the Google Calendar clock instead of the stock one."

@@ -23,18 +23,28 @@ Panel {
 
   property var anchorItem: null
   property var selectedEvent: null
+  property bool showCalendarSettings: false
 
   // ---- Google Calendar agenda. The cache is written by sync/eds_read.py
   //      (GNOME Online Accounts + Evolution Data Server — see the plan doc
   //      for why nothing here talks to Google directly). watchChanges means
   //      the agenda updates itself the moment a sync — automatic or forced —
   //      finishes; the panel never polls.
+  //
+  //      The agenda follows whichever day is selected in the month grid,
+  //      not a fixed multi-day window — clicking a day is how you ask
+  //      "what's on then", the same as the grid's own today highlight.
+  property date selectedDay: today
+  readonly property string selectedDayKey: Model.keyForDate(selectedDay)
   readonly property string eventsCachePath: Quickshell.env("HOME") + "/.cache/omarchy-google-calendar/events.json"
   property var eventsCache: ({ events: [], lastSyncUtc: null, lastError: null, error: "missing" })
-  readonly property var agendaEvents: Model.eventsInRange(eventsCache.events, root.today, 5)
-  readonly property var agendaGroups: Model.groupEventsByDay(agendaEvents)
+  readonly property var agendaEvents: Model.eventsOnDay(eventsCache.events, root.selectedDay)
   readonly property bool agendaStale: Model.isCacheStale(eventsCache.lastSyncUtc, root.today, 5)
   property bool refreshingCalendar: false
+
+  function selectDay(year, month, day) {
+    root.selectedDay = new Date(year, month, day)
+  }
 
   FileView {
     id: eventsFile
@@ -61,11 +71,21 @@ Panel {
   }
 
   function openEvent(event) {
+    root.showCalendarSettings = false
     root.selectedEvent = event
   }
 
   function closeEvent() {
     root.selectedEvent = null
+  }
+
+  function openCalendarSettings() {
+    root.selectedEvent = null
+    root.showCalendarSettings = true
+  }
+
+  function closeCalendarSettings() {
+    root.showCalendarSettings = false
   }
 
   // The bar tracks the widget mounted in its slot — BarWidget.qml — not this
@@ -149,6 +169,7 @@ Panel {
     // waiting behind a closed popup for the next time it opens.
     if (root.editingLife) root.cancelEditingLife()
     root.selectedEvent = null
+    root.showCalendarSettings = false
     root.controller.hide()
   }
 
@@ -178,6 +199,7 @@ Panel {
   function goToToday() {
     root.viewYear = today.getFullYear()
     root.viewMonth = today.getMonth()
+    root.selectedDay = today
   }
 
   function moveMonth(delta) {
@@ -704,13 +726,19 @@ Panel {
 
                     Rectangle {
                       required property var modelData
+                      readonly property bool isSelectedDay: modelData.key === root.selectedDayKey
 
                       width: root.cellWidth
                       height: root.cellHeight
                       radius: Style.cornerRadius
                       // Today is outlined, not filled: a lit-up block shouts
-                      // over a grid this quiet.
-                      color: "transparent"
+                      // over a grid this quiet. The day the agenda is
+                      // currently showing (which starts out as today) gets
+                      // a soft fill on top of that outline, so the two
+                      // states read clearly even when they're the same day.
+                      color: isSelectedDay
+                        ? Qt.rgba(root.contentForeground.r, root.contentForeground.g, root.contentForeground.b, 0.08)
+                        : "transparent"
                       border.width: modelData.today ? Style.spacing.hairline : 0
                       border.color: Style.normalBorderFor(root.contentForeground, Color.accent)
 
@@ -724,6 +752,13 @@ Panel {
                         font.family: root.contentFontFamily
                         font.pixelSize: Style.font.body
                         font.bold: modelData.today
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.selectDay(modelData.year, modelData.month, modelData.day)
                       }
                     }
                   }
@@ -828,22 +863,38 @@ Panel {
                     id: agendaLabel
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "AGENDA"
+                    text: root.selectedDayKey === Model.keyForDate(root.today)
+                      ? "TODAY"
+                      : String(Qt.formatDate(root.selectedDay, "ddd, MMM d")).toUpperCase()
                     color: Qt.darker(root.contentForeground, 1.5)
                     font.family: root.contentFontFamily
                     font.pixelSize: Style.font.bodySmall
                     font.letterSpacing: 1
                   }
 
-                  PanelActionButton {
+                  Row {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    iconText: root.refreshingCalendar ? "󰑖" : "󰑐"
-                    tooltipText: root.refreshingCalendar ? "Refreshing…" : "Refresh all calendars"
-                    foreground: root.contentForeground
-                    fontFamily: root.contentFontFamily
-                    enabled: !root.refreshingCalendar
-                    onClicked: root.forceRefresh()
+                    spacing: Style.space(4)
+
+                    PanelActionButton {
+                      anchors.verticalCenter: parent.verticalCenter
+                      iconText: "󰒓"
+                      tooltipText: "Choose which calendars to show"
+                      foreground: root.contentForeground
+                      fontFamily: root.contentFontFamily
+                      onClicked: root.openCalendarSettings()
+                    }
+
+                    PanelActionButton {
+                      anchors.verticalCenter: parent.verticalCenter
+                      iconText: root.refreshingCalendar ? "󰑖" : "󰑐"
+                      tooltipText: root.refreshingCalendar ? "Refreshing…" : "Refresh all calendars"
+                      foreground: root.contentForeground
+                      fontFamily: root.contentFontFamily
+                      enabled: !root.refreshingCalendar
+                      onClicked: root.forceRefresh()
+                    }
                   }
                 }
 
@@ -885,86 +936,63 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  visible: root.eventsCache.error !== "missing" && !root.eventsCache.lastError && root.agendaGroups.length === 0
+                  visible: root.eventsCache.error !== "missing" && !root.eventsCache.lastError && root.agendaEvents.length === 0
                   width: parent.width
-                  text: "Nothing on the calendar for the next few days"
+                  text: "Nothing on the calendar this day"
                   color: Qt.darker(root.contentForeground, 1.7)
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall
                 }
 
                 Repeater {
-                  model: root.eventsCache.error === "missing" ? [] : root.agendaGroups
+                  model: root.eventsCache.error === "missing" ? [] : root.agendaEvents
 
-                  Column {
-                    id: dayGroup
+                  Item {
                     required property var modelData
                     width: agendaColumn.width
-                    spacing: Style.space(3)
+                    height: Math.max(eventRow.implicitHeight, Style.space(20))
 
-                    Text {
-                      textFormat: Text.PlainText
-                      text: Model.keyForDate(root.today) === dayGroup.modelData.dayKey
-                        ? "TODAY"
-                        : String(Qt.formatDate(new Date(dayGroup.modelData.events[0].start), "ddd, MMM d")).toUpperCase()
-                      color: Qt.darker(root.contentForeground, 1.9)
-                      font.family: root.contentFontFamily
-                      font.pixelSize: Style.font.caption
-                      font.letterSpacing: 1
-                      font.bold: true
+                    Row {
+                      id: eventRow
+                      anchors.left: parent.left
+                      anchors.verticalCenter: parent.verticalCenter
+                      spacing: Style.space(8)
+
+                      Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Style.space(8)
+                        height: Style.space(8)
+                        radius: width / 2
+                        color: modelData.calendarColor || Color.accent
+                      }
+
+                      Text {
+                        textFormat: Text.PlainText
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Style.space(60)
+                        text: modelData.allDay ? "ALL DAY" : Qt.formatTime(new Date(modelData.start), "HH:mm")
+                        color: Qt.darker(root.contentForeground, 1.5)
+                        font.family: root.contentFontFamily
+                        font.pixelSize: Style.font.caption
+                      }
+
+                      Text {
+                        textFormat: Text.PlainText
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: agendaColumn.width - Style.space(76)
+                        elide: Text.ElideRight
+                        text: modelData.title || "(untitled event)"
+                        color: root.contentForeground
+                        font.family: root.contentFontFamily
+                        font.pixelSize: Style.font.body
+                      }
                     }
 
-                    Repeater {
-                      model: dayGroup.modelData.events
-
-                      Item {
-                        required property var modelData
-                        width: dayGroup.width
-                        height: Math.max(eventRow.implicitHeight, Style.space(20))
-
-                        Row {
-                          id: eventRow
-                          anchors.left: parent.left
-                          anchors.verticalCenter: parent.verticalCenter
-                          spacing: Style.space(8)
-
-                          Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Style.space(8)
-                            height: Style.space(8)
-                            radius: width / 2
-                            color: modelData.calendarColor || Color.accent
-                          }
-
-                          Text {
-                            textFormat: Text.PlainText
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Style.space(60)
-                            text: modelData.allDay ? "ALL DAY" : Qt.formatTime(new Date(modelData.start), "HH:mm")
-                            color: Qt.darker(root.contentForeground, 1.5)
-                            font.family: root.contentFontFamily
-                            font.pixelSize: Style.font.caption
-                          }
-
-                          Text {
-                            textFormat: Text.PlainText
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: agendaColumn.width - Style.space(76)
-                            elide: Text.ElideRight
-                            text: modelData.title || "(untitled event)"
-                            color: root.contentForeground
-                            font.family: root.contentFontFamily
-                            font.pixelSize: Style.font.body
-                          }
-                        }
-
-                        MouseArea {
-                          anchors.fill: parent
-                          hoverEnabled: true
-                          cursorShape: Qt.PointingHandCursor
-                          onClicked: root.openEvent(parent.modelData)
-                        }
-                      }
+                    MouseArea {
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.openEvent(parent.modelData)
                     }
                   }
                 }
@@ -986,6 +1014,23 @@ Panel {
         item.foreground = root.contentForeground
         item.fontFamily = root.contentFontFamily
         item.closeRequested.connect(root.closeEvent)
+      }
+    }
+
+    Loader {
+      id: calendarSettingsLoader
+      anchors.fill: parent
+      active: root.showCalendarSettings
+      visible: active
+      source: Qt.resolvedUrl("CalendarSettings.qml")
+      onLoaded: {
+        item.foreground = root.contentForeground
+        item.fontFamily = root.contentFontFamily
+        item.closeRequested.connect(root.closeCalendarSettings)
+        item.saved.connect(function() {
+          root.closeCalendarSettings()
+          root.forceRefresh()
+        })
       }
     }
   }

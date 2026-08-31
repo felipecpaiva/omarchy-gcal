@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Model.js" as Model
@@ -23,11 +22,6 @@ Item {
   Rectangle {
     anchors.fill: parent
     color: Color.background
-  }
-
-  Process {
-    id: openLinkProcess
-    command: ["xdg-open", root.joinUrl]
   }
 
   Flickable {
@@ -95,14 +89,37 @@ Item {
       }
 
       // ---- Join. Only present when the event actually carries a
-      //      Meet/Zoom/Teams link — never a dead button.
-      PanelActionButton {
+      //      Meet/Zoom/Teams link — never a dead button. A labeled row
+      //      rather than a bare icon: an icon-only button here reads as
+      //      decoration, not as the primary action it actually is.
+      Row {
         visible: root.joinUrl !== ""
-        iconText: "󰍹"
-        tooltipText: "Join meeting"
-        foreground: root.foreground
-        fontFamily: root.fontFamily
-        onClicked: openLinkProcess.running = true
+        spacing: Style.space(6)
+
+        PanelActionButton {
+          anchors.verticalCenter: parent.verticalCenter
+          iconText: "󰍹"
+          tooltipText: root.joinUrl
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+          onClicked: Qt.openUrlExternally(root.joinUrl)
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Join meeting"
+          color: Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          font.bold: true
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Qt.openUrlExternally(root.joinUrl)
+          }
+        }
       }
 
       Rectangle {
@@ -114,14 +131,21 @@ Item {
       }
 
       Text {
-        textFormat: Text.PlainText
+        // Google Calendar descriptions arrive as real HTML (<b>, <br>,
+        // <ul><li>, <a href>) — RichText renders that properly instead of
+        // showing the raw tags as text, and gets clickable links (a
+        // Zoom/Meet URL that only exists inside an <a> tag, no dedicated
+        // URL property or plain-text mention) for free via onLinkActivated.
+        textFormat: Text.RichText
         width: parent.width
         wrapMode: Text.WordWrap
         visible: !!(root.event && root.event.description)
         text: root.event ? root.event.description : ""
         color: root.foreground
+        linkColor: Color.accent
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
+        onLinkActivated: function(link) { Qt.openUrlExternally(link) }
       }
 
       Rectangle {

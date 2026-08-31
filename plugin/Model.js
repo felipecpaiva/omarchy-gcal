@@ -321,6 +321,13 @@ function eventsInRange(events, start, days) {
   return out
 }
 
+// Events on exactly one day, sorted the same way eventsInRange sorts —
+// the agenda follows whichever day is selected in the grid, not a fixed
+// multi-day window from today.
+function eventsOnDay(events, day) {
+  return eventsInRange(events, day, 1)
+}
+
 // Groups an already-sorted event list into { dayKey, dayLabel, events }
 // buckets in day order, for the agenda's per-day headers.
 function groupEventsByDay(events) {
@@ -415,6 +422,7 @@ if (typeof module !== "undefined") {
     parseEventsCache: parseEventsCache,
     isCacheStale: isCacheStale,
     eventsInRange: eventsInRange,
+    eventsOnDay: eventsOnDay,
     groupEventsByDay: groupEventsByDay,
     nextUpcomingEvent: nextUpcomingEvent,
     minutesUntil: minutesUntil,

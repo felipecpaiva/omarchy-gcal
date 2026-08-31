@@ -11,6 +11,19 @@ SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 echo "== 1/4: swapping the bar widget back =="
 omarchy plugin disable "$PLUGIN_ID" 2>/dev/null || true
 omarchy plugin enable omarchy.clock 2>/dev/null || true
+SHELL_JSON="$HOME/.config/omarchy/shell.json"
+if [[ -f "$SHELL_JSON" ]] && command -v /usr/bin/python3 >/dev/null; then
+  /usr/bin/python3 -c "
+import json
+path = '$SHELL_JSON'
+with open(path) as f:
+    data = json.load(f)
+if data.get('bar', {}).get('centerAnchor') == '$PLUGIN_ID':
+    data['bar']['centerAnchor'] = 'omarchy.clock'
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+" 2>/dev/null || true
+fi
 
 echo "== 2/4: stopping and removing the sync timer =="
 systemctl --user disable --now omarchy-google-calendar-sync.timer 2>/dev/null || true

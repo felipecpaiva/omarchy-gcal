@@ -244,6 +244,58 @@ def discover_calendars():
     return registry, roots, calendars
 
 
+def cmd_list_calendars_json():
+    """Machine-readable form of --list-calendars for the QML settings
+    panel — same discovery logic, no terminal interaction, so the widget
+    can render its own checklist instead of shelling out to a picker."""
+    registry, roots, calendars = discover_calendars()
+    if not roots:
+        print(json.dumps({"error": "No Google account linked", "calendars": []}))
+        return 1
+    selected = load_selected_uids() or set()
+    payload = [
+        {
+            "uid": source.get_uid(),
+            "name": source.get_display_name(),
+            "account": account_label,
+            "color": source.get_extension("Calendar").get_color() or "",
+            "selected": source.get_uid() in selected,
+        }
+        for source, account_label in calendars
+    ]
+    print(json.dumps({"error": None, "calendars": payload}))
+    return 0
+
+
+def cmd_list_options():
+    """Flat `[{value,label,description}]` array — the exact shape the
+    shell's own Ui/MultiSelect.qml expects from an `optionsCommand`. Used
+    as the widget's calendar picker instead of building a custom checkbox
+    list from scratch."""
+    registry, roots, calendars = discover_calendars()
+    options = [
+        {"value": source.get_uid(), "label": source.get_display_name(), "description": account_label}
+        for source, account_label in calendars
+    ]
+    print(json.dumps(options))
+    return 0
+
+
+def cmd_print_selected():
+    """Just the current selection as a JSON array — MultiSelect's `values`
+    binding needs this once, up front, separately from the option list
+    itself (which comes from --list-options)."""
+    print(json.dumps(sorted(load_selected_uids() or set())))
+    return 0
+
+
+def cmd_set_selected(raw_uids):
+    uids = {u.strip() for u in raw_uids.split(",") if u.strip()}
+    save_selected_uids(uids)
+    print("Saved %d selected calendar(s) to %s" % (len(uids), CONFIG_PATH))
+    return 0
+
+
 def cmd_list_calendars():
     registry, roots, calendars = discover_calendars()
     if not roots:
@@ -301,7 +353,11 @@ def main():
     parser.add_argument("--refresh", action="store_true", help="force EDS to refresh every linked calendar before reading")
     parser.add_argument("--check-accounts", action="store_true", help="print whether a Google GOA account is linked and exit (no event fetch, no cache write) — used by install.sh")
     parser.add_argument("--list-calendars", action="store_true", help="list every calendar under your linked Google account(s) and which are selected, then exit")
+    parser.add_argument("--list-calendars-json", action="store_true", help="same as --list-calendars but as JSON, for the widget's own calendar picker")
+    parser.add_argument("--list-options", action="store_true", help="flat [{value,label,description}] array — the shape qs.Ui MultiSelect's optionsCommand expects")
+    parser.add_argument("--print-selected", action="store_true", help="print the currently selected calendar UIDs as a JSON array")
     parser.add_argument("--select-calendars", action="store_true", help="interactively pick which calendars show on the bar, then exit")
+    parser.add_argument("--set-selected", metavar="UID1,UID2,...", help="non-interactively set the selected calendar UIDs (empty string clears the selection) — used by the widget's calendar picker")
     args = parser.parse_args()
 
     if args.check_accounts:
@@ -313,6 +369,18 @@ def main():
 
     if args.list_calendars:
         return cmd_list_calendars()
+
+    if args.list_calendars_json:
+        return cmd_list_calendars_json()
+
+    if args.list_options:
+        return cmd_list_options()
+
+    if args.print_selected:
+        return cmd_print_selected()
+
+    if args.set_selected is not None:
+        return cmd_set_selected(args.set_selected)
 
     if args.select_calendars:
         return cmd_select_calendars()
