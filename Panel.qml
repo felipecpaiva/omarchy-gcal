@@ -134,6 +134,13 @@ Panel {
   // convention. Clicking the grid's "W" heading writes the choice back to
   // shell.json.
   readonly property int weekStart: Model.normalizedWeekStart(setting("weekStartDay", null), Qt.locale().firstDayOfWeek)
+
+  // Same setting BarWidget.qml reads for the bar's own "in Nm" badge —
+  // toggled from the gear-icon settings screen, not here.
+  readonly property bool showNextEventBadge: setting("showNextEventBadge", true)
+  function setShowNextEventBadge(value) {
+    persistSettings({ showNextEventBadge: value })
+  }
   // The interface is English throughout, so day names are not taken from the
   // system locale. Where the week starts still is: that is a regional
   // convention rather than a translation, and it stays overridable above.
@@ -1127,11 +1134,13 @@ Panel {
       onLoaded: {
         item.foreground = root.contentForeground
         item.fontFamily = root.contentFontFamily
+        item.showNextEventBadge = root.showNextEventBadge
         item.closeRequested.connect(root.closeCalendarSettings)
         item.saved.connect(function() {
           root.closeCalendarSettings()
           root.forceRefresh()
         })
+        item.showNextEventBadgeToggled.connect(root.setShowNextEventBadge)
       }
     }
   }

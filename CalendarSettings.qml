@@ -20,8 +20,11 @@ Item {
   property color foreground: Color.foreground
   property string fontFamily: Style.font.family
 
+  property bool showNextEventBadge: true
+
   signal closeRequested()
   signal saved()
+  signal showNextEventBadgeToggled(bool value)
 
   Rectangle {
     anchors.fill: parent
@@ -154,6 +157,61 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: root.save()
           }
+        }
+      }
+    }
+
+    Rectangle {
+      width: parent.width
+      height: Style.spacing.hairline
+      color: root.foreground
+      opacity: 0.12
+    }
+
+    Text {
+      textFormat: Text.PlainText
+      text: "BAR DISPLAY"
+      color: Qt.darker(root.foreground, 1.5)
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.letterSpacing: 1
+    }
+
+    Item {
+      width: parent.width
+      height: badgeToggleRow.implicitHeight
+
+      Row {
+        id: badgeToggleRow
+        anchors.left: parent.left
+        spacing: Style.space(6)
+
+        Text {
+          id: badgeToggleIcon
+          textFormat: Text.PlainText
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.showNextEventBadge ? "󰱒" : "󰄱"
+          color: root.showNextEventBadge ? Color.accent : Qt.darker(root.foreground, 1.4)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Show next meeting time on the bar"
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+        }
+      }
+
+      MouseArea {
+        anchors.fill: badgeToggleRow
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          root.showNextEventBadge = !root.showNextEventBadge
+          root.showNextEventBadgeToggled(root.showNextEventBadge)
         }
       }
     }

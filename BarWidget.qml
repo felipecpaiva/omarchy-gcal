@@ -23,7 +23,12 @@ BarWidget {
   readonly property string eventsCachePath: Quickshell.env("HOME") + "/.cache/omarchy-google-calendar/events.json"
   property var eventsCache: ({ events: [], lastSyncUtc: null, lastError: null, error: "missing" })
   readonly property var nextEvent: Model.nextUpcomingEvent(eventsCache.events, displayDate)
-  readonly property string badgeText: Model.badgeLabel(nextEvent, displayDate)
+  // Off by default would defeat the point (the whole reason for the
+  // badge), on by default would surprise anyone who just wants a clock —
+  // "on" matches what the widget already showed before this became
+  // optional, and the gear-icon settings screen is one click away.
+  readonly property bool showNextEventBadge: setting("showNextEventBadge", true)
+  readonly property string badgeText: showNextEventBadge ? Model.badgeLabel(nextEvent, displayDate) : ""
 
   FileView {
     id: eventsFile
