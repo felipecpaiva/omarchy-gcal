@@ -67,11 +67,18 @@ repo installed.
 
 ## How it's built
 
-- `plugin/` — the QML bar widget, forked from Omarchy's own stock clock
-  source so every existing behavior (format cycling, month grid, timezone
-  picker, life bar) keeps working unchanged; see `plugin/test/` for the
-  self-check on the added agenda/date logic.
+- `manifest.json` + the QML files at the repo root — the bar widget, forked
+  from Omarchy's own stock clock source so every existing behavior (format
+  cycling, month grid, timezone picker, life bar) keeps working unchanged.
+  `manifest.json` lives at the repo root (not nested) because that's what
+  Omarchy's own plugin loader requires — see
+  [docs/omarchy-plugin-convention.md](docs/omarchy-plugin-convention.md).
+  `test/` has the self-check on the added agenda/date logic.
 - `sync/eds_read.py` — reads events from EDS/GOA and writes a JSON cache
   the widget reads; see `sync/test_eds_read.py` for the self-check on its
   non-EDS logic. Run with the system `/usr/bin/python3`, not a pyenv/mise
-  shim — see [docs/prerequisites.md](docs/prerequisites.md).
+  shim — see [docs/prerequisites.md](docs/prerequisites.md). This part sits
+  outside the plugin proper because Omarchy's plugin installer only ever
+  copies files — it never runs setup code, so anything needing a GOA
+  account check, a systemd timer, or a first-run calendar picker has to be
+  a separate script (`install.sh`) the user runs once.

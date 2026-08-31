@@ -53,7 +53,7 @@ echo
 echo "== 4/6: installing the plugin =="
 rm -rf "$PLUGIN_DEST"
 mkdir -p "$PLUGIN_DEST"
-cp -f "$REPO_DIR"/plugin/*.qml "$REPO_DIR"/plugin/*.js "$REPO_DIR/plugin/manifest.json" "$PLUGIN_DEST/"
+cp -f "$REPO_DIR"/*.qml "$REPO_DIR"/*.js "$REPO_DIR/manifest.json" "$PLUGIN_DEST/"
 omarchy plugin validate "$PLUGIN_DEST"
 
 echo
