@@ -2,10 +2,20 @@
 
 A drop-in replacement for [Omarchy](https://omarchy.org/)'s stock top-bar
 clock widget — same clock, same month-grid popup, same life-expectancy
-easter egg, plus a Google Calendar agenda: upcoming events, full event
-details (description, location, attendees, a one-click Join button for
-Meet/Zoom/Teams links), and a force-refresh button that syncs every linked
-account at once.
+easter egg, plus a Google Calendar agenda: upcoming events (correctly
+converted to your local timezone, even across other timezones), a "now" /
+"in Nm" marker on whichever event is next, birthdays collapsed into one
+expandable row instead of one per name, and a force-refresh button (with
+a visible "Syncing…" indicator) that syncs every linked account at once.
+
+Clicking an event shows everything the calendar data actually carries:
+description, location (tappable — a Maps link if it's an address, opens
+as-is if it's already a link), attendees with RSVP status, organizer,
+which calendar it's on, a plain-English recurrence summary ("Every
+weekday"), Busy/Free, a Cancelled/Tentative banner when it applies, the
+reminder offset, and a one-click Join button for Meet/Zoom/Teams links.
+Opening any of those closes the popup, same as clicking through in the
+real Google Calendar app would.
 
 ## How it gets your events (no password, no new Google app access)
 

@@ -16,8 +16,26 @@ Item {
   property color foreground: Color.foreground
   property string fontFamily: Style.font.family
   readonly property string joinUrl: root.event ? Model.extractJoinUrl(root.event) : ""
+  // Google Calendar's own app treats ANY location as tappable, not just a
+  // literal URL — a plain street address opens a Maps search. Same here:
+  // a bare http(s) link opens as-is, anything else becomes a Maps query.
+  readonly property string locationUrl: {
+    var loc = root.event && root.event.location ? String(root.event.location).trim() : ""
+    if (!loc) return ""
+    if (/^https?:\/\/\S+$/i.test(loc)) return loc
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(loc)
+  }
 
   signal closeRequested()
+  // Fired right before handing off to an external app (browser, meeting
+  // client) — the popup has no reason to stay open once focus is about
+  // to leave it anyway.
+  signal externalOpened()
+
+  function openExternal(url) {
+    Util.execArgv(["xdg-open", url])
+    root.externalOpened()
+  }
 
   Rectangle {
     anchors.fill: parent
@@ -64,6 +82,19 @@ Item {
         font.family: root.fontFamily
         font.pixelSize: Style.font.headerSmall !== undefined ? Style.font.headerSmall : Style.font.body
         font.bold: true
+        font.strikeout: !!(root.event && root.event.status === "cancelled")
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        width: parent.width
+        visible: !!(root.event && root.event.status)
+        text: root.event && root.event.status === "cancelled" ? "CANCELED" : "TENTATIVE"
+        color: Color.accent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.letterSpacing: 1
+        font.bold: true
       }
 
       Text {
@@ -71,7 +102,7 @@ Item {
         width: parent.width
         wrapMode: Text.WordWrap
         visible: !!root.event
-        text: root.event ? timeRangeText(root.event) : ""
+        text: (root.event ? timeRangeText(root.event) : "") + busySuffix(root.event)
         color: Qt.darker(root.foreground, 1.4)
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
@@ -81,8 +112,99 @@ Item {
         textFormat: Text.PlainText
         width: parent.width
         wrapMode: Text.WordWrap
+        visible: !!(root.event && root.event.reminderMinutes !== null && root.event.reminderMinutes !== undefined)
+        text: "󰀦 " + reminderText(root.event ? root.event.reminderMinutes : null)
+        color: Qt.darker(root.foreground, 1.4)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        width: parent.width
+        wrapMode: Text.WordWrap
+        visible: !!(root.event && root.event.recurrence)
+        text: "󰑓 " + (root.event ? root.event.recurrence : "")
+        color: Qt.darker(root.foreground, 1.4)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(6)
+        visible: !!(root.event && root.event.calendarName)
+
+        Rectangle {
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(8)
+          height: Style.space(8)
+          radius: width / 2
+          color: root.event && root.event.calendarColor ? root.event.calendarColor : Color.accent
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(14)
+          wrapMode: Text.WordWrap
+          text: root.event ? root.event.calendarName : ""
+          color: Qt.darker(root.foreground, 1.4)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+        }
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        width: parent.width
+        wrapMode: Text.WordWrap
         visible: !!(root.event && root.event.location)
         text: "Location: " + (root.event ? root.event.location : "")
+        color: Qt.darker(root.foreground, 1.4)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+
+      // A Maps link in the location field gets its own tap target — same
+      // safe pattern as the Join button below, not a link embedded in
+      // RichText (that broke the panel's layout when tapped).
+      Row {
+        visible: root.locationUrl !== ""
+        spacing: Style.space(6)
+
+        PanelActionButton {
+          anchors.verticalCenter: parent.verticalCenter
+          iconText: "󰌖"
+          tooltipText: root.locationUrl
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+          onClicked: root.openExternal(root.locationUrl)
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Open in Maps"
+          color: Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          font.bold: true
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openExternal(root.locationUrl)
+          }
+        }
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        width: parent.width
+        wrapMode: Text.WordWrap
+        visible: !!(root.event && root.event.organizer)
+        text: "Organized by " + (root.event && root.event.organizer ? (root.event.organizer.name || root.event.organizer.email) : "")
         color: Qt.darker(root.foreground, 1.4)
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
@@ -102,7 +224,7 @@ Item {
           tooltipText: root.joinUrl
           foreground: root.foreground
           fontFamily: root.fontFamily
-          onClicked: Qt.openUrlExternally(root.joinUrl)
+          onClicked: root.openExternal(root.joinUrl)
         }
 
         Text {
@@ -117,7 +239,7 @@ Item {
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: Qt.openUrlExternally(root.joinUrl)
+            onClicked: root.openExternal(root.joinUrl)
           }
         }
       }
@@ -145,7 +267,7 @@ Item {
         linkColor: Color.accent
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
-        onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+        onLinkActivated: function(link) { root.openExternal(link) }
       }
 
       Rectangle {
@@ -197,5 +319,21 @@ Item {
     if (normalized === "declined") return "  ✗"
     if (normalized === "tentative") return "  ?"
     return ""
+  }
+
+  // busy === null means the event carried no TRANSP property at all —
+  // stay silent rather than guess, same "no signal" handling as the
+  // other optional fields.
+  function busySuffix(event) {
+    if (!event || event.busy === null || event.busy === undefined) return ""
+    return event.busy ? "  ·  Busy" : "  ·  Free"
+  }
+
+  function reminderText(minutes) {
+    if (minutes === null || minutes === undefined) return ""
+    if (minutes === 0) return "At time of event"
+    if (minutes % 1440 === 0) return (minutes / 1440) + (minutes === 1440 ? " day before" : " days before")
+    if (minutes % 60 === 0) return (minutes / 60) + (minutes === 60 ? " hour before" : " hours before")
+    return minutes + " minutes before"
   }
 }

@@ -40,6 +40,10 @@ Panel {
   property var eventsCache: ({ events: [], lastSyncUtc: null, lastError: null, error: "missing" })
   readonly property var agendaEvents: Model.eventsOnDay(eventsCache.events, root.selectedDay)
   readonly property bool agendaStale: Model.isCacheStale(eventsCache.lastSyncUtc, root.today, 5)
+  // Same computation BarWidget.qml uses for the bar badge — the panel's own
+  // quick-reference line at the top just needs the label text alongside it.
+  readonly property var nextEvent: Model.nextUpcomingEvent(eventsCache.events, root.today)
+  readonly property string nextEventBadge: Model.badgeLabel(nextEvent, root.today)
   property bool refreshingCalendar: false
 
   function selectDay(year, month, day) {
@@ -898,6 +902,19 @@ Panel {
                   }
                 }
 
+                // Visible while a save-triggered or manual sync is in
+                // flight (~20s) — without this, closing the settings popup
+                // right after Save looks identical to a stuck Save, since
+                // the settings screen's own "Saving…" state is gone by then.
+                Text {
+                  textFormat: Text.PlainText
+                  visible: root.refreshingCalendar
+                  text: "Syncing…"
+                  color: Qt.darker(root.contentForeground, 1.4)
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
                 // Errors and staleness are surfaced here rather than an
                 // empty list — a blank agenda and "nothing scheduled" must
                 // never look the same as "the sync is broken".
@@ -944,8 +961,70 @@ Panel {
                   font.pixelSize: Style.font.bodySmall
                 }
 
+                // A birthday-heavy day (a big Contacts calendar can carry
+                // half a dozen) used to burn one full row each — collapsed
+                // into a single expandable line instead.
+                readonly property var dayBirthdays: root.eventsCache.error === "missing" ? [] : root.agendaEvents.filter(function(e) { return Model.isBirthdayEvent(e) })
+                readonly property var dayOtherEvents: root.eventsCache.error === "missing" ? [] : root.agendaEvents.filter(function(e) { return !Model.isBirthdayEvent(e) })
+                property bool birthdaysExpanded: false
+
+                Connections {
+                  target: root
+                  function onSelectedDayChanged() { agendaColumn.birthdaysExpanded = false }
+                }
+
+                Item {
+                  width: parent.width
+                  visible: agendaColumn.dayBirthdays.length > 0
+                  height: visible ? birthdayHeaderRow.implicitHeight : 0
+
+                  Row {
+                    id: birthdayHeaderRow
+                    anchors.left: parent.left
+                    spacing: Style.space(8)
+
+                    Text {
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: " " + agendaColumn.dayBirthdays.length + (agendaColumn.dayBirthdays.length === 1 ? " birthday" : " birthdays")
+                        + (agendaColumn.birthdaysExpanded ? " 󰅃" : " 󰅀")
+                      color: root.contentForeground
+                      font.family: root.contentFontFamily
+                      font.pixelSize: Style.font.body
+                    }
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: agendaColumn.birthdaysExpanded = !agendaColumn.birthdaysExpanded
+                  }
+                }
+
                 Repeater {
-                  model: root.eventsCache.error === "missing" ? [] : root.agendaEvents
+                  model: agendaColumn.birthdaysExpanded ? agendaColumn.dayBirthdays : []
+
+                  Text {
+                    required property var modelData
+                    textFormat: Text.PlainText
+                    x: Style.space(16)
+                    width: agendaColumn.width - Style.space(16)
+                    elide: Text.ElideRight
+                    text: modelData.title || "(untitled event)"
+                    color: Qt.darker(root.contentForeground, 1.2)
+                    font.family: root.contentFontFamily
+                    font.pixelSize: Style.font.bodySmall
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.openEvent(parent.modelData)
+                    }
+                  }
+                }
+
+                Repeater {
+                  model: agendaColumn.dayOtherEvents
 
                   Item {
                     required property var modelData
@@ -979,12 +1058,33 @@ Panel {
                       Text {
                         textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
-                        width: agendaColumn.width - Style.space(76)
+                        width: agendaColumn.width - Style.space(76) - (nextBadge.visible ? nextBadge.width + Style.space(6) : 0)
                         elide: Text.ElideRight
                         text: modelData.title || "(untitled event)"
                         color: root.contentForeground
                         font.family: root.contentFontFamily
                         font.pixelSize: Style.font.body
+                      }
+
+                      // Marks whichever row is the same event BarWidget.qml's
+                      // bar badge is already counting down to — same
+                      // Model.nextUpcomingEvent computation, so the two never
+                      // disagree about which event is "next".
+                      Text {
+                        id: nextBadge
+                        textFormat: Text.PlainText
+                        anchors.verticalCenter: parent.verticalCenter
+                        // Compared by id, not object identity — a `property
+                        // var` holding parsed JSON can hand back a different
+                        // wrapper for the "same" element on each binding
+                        // re-evaluation, so `===` between two separate reads
+                        // of eventsCache.events is not reliable.
+                        visible: root.nextEvent && modelData.id === root.nextEvent.id && root.nextEventBadge !== ""
+                        text: root.nextEventBadge
+                        color: Color.accent
+                        font.family: root.contentFontFamily
+                        font.pixelSize: Style.font.caption
+                        font.bold: true
                       }
                     }
 
@@ -1014,6 +1114,7 @@ Panel {
         item.foreground = root.contentForeground
         item.fontFamily = root.contentFontFamily
         item.closeRequested.connect(root.closeEvent)
+        item.externalOpened.connect(root.close)
       }
     }
 

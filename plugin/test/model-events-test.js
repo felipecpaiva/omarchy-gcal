@@ -52,4 +52,11 @@ assert.strictEqual(Model.extractJoinUrl({ joinUrl: "https://example.com/x", desc
 assert.strictEqual(Model.extractJoinUrl({ description: "Join: https://meet.google.com/abc-defg-hij" }), "https://meet.google.com/abc-defg-hij")
 assert.strictEqual(Model.extractJoinUrl({ description: "no link here" }), "")
 
+// isBirthdayEvent: the only signal is an all-day event titled "X's
+// birthday" — Google's birthday calendar carries no dedicated type field.
+assert.strictEqual(Model.isBirthdayEvent({ allDay: true, title: "Jane Doe's birthday" }), true)
+assert.strictEqual(Model.isBirthdayEvent({ allDay: true, title: "Company holiday" }), false)
+assert.strictEqual(Model.isBirthdayEvent({ allDay: false, title: "Jane Doe's birthday" }), false)
+assert.strictEqual(Model.isBirthdayEvent({ allDay: true, title: "" }), false)
+
 console.log("model-events-test: all assertions passed")

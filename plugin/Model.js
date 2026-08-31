@@ -328,6 +328,15 @@ function eventsOnDay(events, day) {
   return eventsInRange(events, day, 1)
 }
 
+// Google's own birthday calendar has no dedicated type field to key off
+// of — an all-day event titled "X's birthday" is the only signal there
+// is, same one a human reads it by.
+var BIRTHDAY_TITLE_RE = /'s birthday\s*$/i
+
+function isBirthdayEvent(event) {
+  return !!event.allDay && BIRTHDAY_TITLE_RE.test(String(event.title || ""))
+}
+
 // Groups an already-sorted event list into { dayKey, dayLabel, events }
 // buckets in day order, for the agenda's per-day headers.
 function groupEventsByDay(events) {
@@ -423,6 +432,7 @@ if (typeof module !== "undefined") {
     isCacheStale: isCacheStale,
     eventsInRange: eventsInRange,
     eventsOnDay: eventsOnDay,
+    isBirthdayEvent: isBirthdayEvent,
     groupEventsByDay: groupEventsByDay,
     nextUpcomingEvent: nextUpcomingEvent,
     minutesUntil: minutesUntil,

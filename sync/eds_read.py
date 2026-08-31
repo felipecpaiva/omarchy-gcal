@@ -94,6 +94,14 @@ def calendar_sources_for(registry, root_uids, selected_uids):
 def ical_time_to_iso(t):
     if t.is_date():
         return "%04d-%02d-%02dT00:00:00Z" % (t.get_year(), t.get_month(), t.get_day())
+    # ICalGLib.Time.as_timet() ignores the timezone attached via
+    # get_timezone() and reads the wall-clock numbers as if they were
+    # already UTC — a 9am America/Toronto event comes back as "09:00:00Z"
+    # instead of "13:00:00Z". Converting to the UTC zone first forces the
+    # actual offset to be applied. Confirmed against a real EDT (UTC-4)
+    # event: as_timet() alone was off by exactly the zone's offset.
+    if not t.is_utc() and t.get_timezone() is not None:
+        t = t.convert_to_zone(ICalGLib.Timezone.get_utc_timezone())
     dt = datetime.datetime.fromtimestamp(t.as_timet(), tz=datetime.timezone.utc)
     return dt.isoformat().replace("+00:00", "Z")
 
@@ -114,6 +122,106 @@ def extract_attendees(ical):
         attendees.append({"name": name, "email": email, "status": status})
         prop = ical.get_next_property(ICalGLib.PropertyKind.ATTENDEE_PROPERTY)
     return attendees
+
+
+STATUS_LABELS = {
+    ICalGLib.PropertyStatus.TENTATIVE: "tentative",
+    ICalGLib.PropertyStatus.CANCELLED: "cancelled",
+}
+
+
+def extract_status(ical):
+    # CONFIRMED is the default for every synced event and carries no
+    # signal — only the two states worth a banner are worth returning.
+    prop = ical.get_first_property(ICalGLib.PropertyKind.STATUS_PROPERTY)
+    if not prop:
+        return ""
+    return STATUS_LABELS.get(ical.get_status(), "")
+
+
+def extract_busy(ical):
+    prop = ical.get_first_property(ICalGLib.PropertyKind.TRANSP_PROPERTY)
+    if not prop:
+        return None
+    return prop.get_transp() == ICalGLib.PropertyTransp.OPAQUE
+
+
+def extract_reminder_minutes(ical):
+    alarm = ical.get_first_component(ICalGLib.ComponentKind.VALARM_COMPONENT)
+    if not alarm:
+        return None
+    trigger_prop = alarm.get_first_property(ICalGLib.PropertyKind.TRIGGER_PROPERTY)
+    if not trigger_prop:
+        return None
+    trigger = trigger_prop.get_trigger()
+    if not trigger or trigger.is_null_trigger() or trigger.is_bad_trigger():
+        return None
+    seconds = trigger.get_duration().as_seconds()
+    return abs(seconds) // 60 if seconds else None
+
+
+def extract_organizer(ical):
+    prop = ical.get_first_property(ICalGLib.PropertyKind.ORGANIZER_PROPERTY)
+    if not prop:
+        return None
+    email = strip_mailto(prop.get_organizer())
+    if not email:
+        return None
+    return {"name": prop.get_parameter_as_string("CN") or email, "email": email}
+
+
+RRULE_WEEKDAY_NAMES = {"MO": "Monday", "TU": "Tuesday", "WE": "Wednesday", "TH": "Thursday",
+                        "FR": "Friday", "SA": "Saturday", "SU": "Sunday"}
+RRULE_WEEKDAYS = ("MO", "TU", "WE", "TH", "FR")
+
+
+def humanize_recurrence(rrule_text):
+    """"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" -> "Every weekday" — the same
+    plain-English summary Google Calendar's own event card shows, covering
+    the FREQ/INTERVAL/BYDAY/UNTIL/COUNT terms real calendars actually use
+    rather than the full RFC 5545 grammar."""
+    if not rrule_text:
+        return ""
+    parts = dict(p.split("=", 1) for p in rrule_text.split(";") if "=" in p)
+    freq = parts.get("FREQ", "")
+    interval = int(parts.get("INTERVAL", "1") or "1")
+    byday = [d for d in parts.get("BYDAY", "").split(",") if d]
+
+    if freq == "DAILY":
+        base = "Daily" if interval == 1 else "Every %d days" % interval
+    elif freq == "WEEKLY":
+        if interval == 1 and set(byday) == set(RRULE_WEEKDAYS):
+            base = "Every weekday"
+        elif byday:
+            base = ("Weekly" if interval == 1 else "Every %d weeks" % interval) \
+                + " on " + ", ".join(RRULE_WEEKDAY_NAMES.get(d, d) for d in byday)
+        else:
+            base = "Weekly" if interval == 1 else "Every %d weeks" % interval
+    elif freq == "MONTHLY":
+        base = "Monthly" if interval == 1 else "Every %d months" % interval
+    elif freq == "YEARLY":
+        base = "Yearly" if interval == 1 else "Every %d years" % interval
+    else:
+        return ""
+
+    until = parts.get("UNTIL", "")
+    count = parts.get("COUNT", "")
+    if until:
+        try:
+            base += " until " + datetime.datetime.strptime(until[:8], "%Y%m%d").strftime("%b %-d, %Y")
+        except ValueError:
+            pass
+    elif count:
+        base += " (%s times)" % count
+    return base
+
+
+def extract_recurrence(ical):
+    prop = ical.get_first_property(ICalGLib.PropertyKind.RRULE_PROPERTY)
+    if not prop:
+        return ""
+    recur = prop.get_rrule()
+    return humanize_recurrence(recur.to_string()) if recur else ""
 
 
 def extract_join_url(ical, description):
@@ -148,6 +256,11 @@ def event_to_dict(ical, instance_start, instance_end, calendar_name, calendar_co
         "accountLabel": account_label,
         "attendees": extract_attendees(ical),
         "joinUrl": extract_join_url(ical, description),
+        "organizer": extract_organizer(ical),
+        "recurrence": extract_recurrence(ical),
+        "status": extract_status(ical),
+        "busy": extract_busy(ical),
+        "reminderMinutes": extract_reminder_minutes(ical),
     }
 
 

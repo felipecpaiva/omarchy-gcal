@@ -18,6 +18,18 @@ def test_strip_mailto():
     assert eds_read.strip_mailto(None) == ""
 
 
+def test_humanize_recurrence():
+    # The exact RRULE strings real Google Calendar events produced on this
+    # machine (see docs/STATUS.md) — not synthesized edge cases.
+    assert eds_read.humanize_recurrence("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR") == "Every weekday"
+    assert eds_read.humanize_recurrence("FREQ=WEEKLY;WKST=SU;BYDAY=TU,TH") == "Weekly on Tuesday, Thursday"
+    assert eds_read.humanize_recurrence("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20260912T035959Z") \
+        == "Every weekday until Sep 12, 2026"
+    assert eds_read.humanize_recurrence("FREQ=DAILY") == "Daily"
+    assert eds_read.humanize_recurrence("FREQ=YEARLY") == "Yearly"
+    assert eds_read.humanize_recurrence("") == ""
+
+
 def test_conference_url_regex_via_extract_join_url():
     class FakeUrlProp:
         def get_url(self):
@@ -88,6 +100,7 @@ def test_write_cache_preserves_events_on_total_failure():
 
 if __name__ == "__main__":
     test_strip_mailto()
+    test_humanize_recurrence()
     test_conference_url_regex_via_extract_join_url()
     test_selected_uids_round_trip()
     test_write_cache_preserves_events_on_total_failure()
