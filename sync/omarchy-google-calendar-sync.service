@@ -1,0 +1,6 @@
+[Unit]
+Description=Sync Google Calendar events into the omarchy-gcal cache (via GNOME Online Accounts / Evolution Data Server)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/share/omarchy-google-calendar/eds_read.py --refresh

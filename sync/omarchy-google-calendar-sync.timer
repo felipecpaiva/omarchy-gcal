@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically sync Google Calendar events for the omarchy-gcal bar widget
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

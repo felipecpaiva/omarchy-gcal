@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "google-calendar.clock",
+  "name": "Google Calendar Clock",
+  "version": "1.0.0",
+  "author": "felipecpaiva",
+  "description": "Date/time label and calendar popup with Google Calendar events (via GNOME Online Accounts / Evolution Data Server)",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Google Calendar Clock",
+    "description": "Date/time label and calendar popup with Google Calendar events",
+    "category": "Time",
+    "allowMultiple": false
+  }
+}
