@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Read Google Calendar events through GNOME Online Accounts + Evolution
 Data Server — no OAuth code of our own. See the plan doc's "Data layer"
 section for why: GOA already holds an approved Google login for this
