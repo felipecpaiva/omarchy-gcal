@@ -73,7 +73,10 @@ repo installed.
   `manifest.json` lives at the repo root (not nested) because that's what
   Omarchy's own plugin loader requires — see
   [docs/omarchy-plugin-convention.md](docs/omarchy-plugin-convention.md).
-  `test/` has the self-check on the added agenda/date logic.
+  `test/` has the self-checks: `model-events-test.js` on the added
+  agenda/date logic, `panel-host-writes-test.js` on how `Panel.qml` writes to
+  the host bar (a direct write to a read-only host property throws and aborts
+  whatever called it).
 - `sync/eds_read.py` — reads events from EDS/GOA and writes a JSON cache
   the widget reads; see `sync/test_eds_read.py` for the self-check on its
   non-EDS logic. Run with the system `/usr/bin/python3`, not a pyenv/mise

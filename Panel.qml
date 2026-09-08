@@ -197,8 +197,15 @@ Panel {
 
   // Summoning by hotkey moves no pointer, so a hover the bar was still
   // holding must not keep the center indicators revealed behind the panel.
+  // The bar hands plugins a read-only view of this flag plus a setter, so a
+  // plain assignment throws. It used to be assignable, and close() calls this
+  // first: the throw aborted close() before controller.hide(), which left the
+  // panel permanently stuck open. Prefer the setter, keep the assignment as
+  // the fallback for a host that only exposes the property.
   function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
+    if (root.bar && typeof root.bar.setCenterHoverRevealSuppressed === "function")
+      root.bar.setCenterHoverRevealSuppressed(value)
+    else if (root.bar && "centerHoverRevealSuppressed" in root.bar)
       root.bar.centerHoverRevealSuppressed = value
   }
 
