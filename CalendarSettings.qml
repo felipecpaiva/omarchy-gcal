@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // "Which calendars show on the bar" — the same job GNOME Calendar's own
@@ -17,7 +18,7 @@ Item {
   // instantiates this component to hand it over at the right moment —
   // one less cross-component timing dependency to get wrong.
   readonly property string scriptPath: Quickshell.env("HOME") + "/.local/share/omarchy-google-calendar/eds_read.py"
-  property color foreground: Color.foreground
+  property color foreground: Commons.Color.foreground
   property string fontFamily: Style.font.family
 
   property bool showNextEventBadge: true
@@ -28,7 +29,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Color.background
+    color: Commons.Color.background
   }
 
   Process {
@@ -115,7 +116,7 @@ Item {
       emptyText: "No calendars found — link a Google account first"
       noSelectionText: "None selected"
       // Deliberately NOT overriding foreground/background/accent here.
-      // MultiSelect's defaults (Color.popups.text on Color.popups.background)
+      // MultiSelect's defaults (Commons.Color.popups.text on Commons.Color.popups.background)
       // are a matched, theme-correct pair for a popup surface; forcing the
       // panel's own foreground onto it made trigger text unreadable against
       // the popup's actual background under this machine's active theme.
@@ -146,7 +147,7 @@ Item {
           textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: saveProcess.pendingRefresh ? "Saving…" : "Save"
-          color: Color.accent
+          color: Commons.Color.accent
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
           font.bold: true
@@ -191,7 +192,7 @@ Item {
           textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: root.showNextEventBadge ? "󰱒" : "󰄱"
-          color: root.showNextEventBadge ? Color.accent : Qt.darker(root.foreground, 1.4)
+          color: root.showNextEventBadge ? Commons.Color.accent : Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }

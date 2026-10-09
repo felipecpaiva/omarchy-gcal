@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -13,7 +14,7 @@ Item {
   id: root
 
   property var event: null
-  property color foreground: Color.foreground
+  property color foreground: Commons.Color.foreground
   property string fontFamily: Style.font.family
   readonly property string joinUrl: root.event ? Model.extractJoinUrl(root.event) : ""
   // Google Calendar's own app treats ANY location as tappable, not just a
@@ -39,7 +40,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Color.background
+    color: Commons.Color.background
   }
 
   Flickable {
@@ -90,7 +91,7 @@ Item {
         width: parent.width
         visible: !!(root.event && root.event.status)
         text: root.event && root.event.status === "cancelled" ? "CANCELED" : "TENTATIVE"
-        color: Color.accent
+        color: Commons.Color.accent
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.letterSpacing: 1
@@ -140,7 +141,7 @@ Item {
           width: Style.space(8)
           height: Style.space(8)
           radius: width / 2
-          color: root.event && root.event.calendarColor ? root.event.calendarColor : Color.accent
+          color: root.event && root.event.calendarColor ? root.event.calendarColor : Commons.Color.accent
         }
 
         Text {
@@ -186,7 +187,7 @@ Item {
           textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: "Open in Maps"
-          color: Color.accent
+          color: Commons.Color.accent
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
           font.bold: true
@@ -231,7 +232,7 @@ Item {
           textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: "Join meeting"
-          color: Color.accent
+          color: Commons.Color.accent
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
           font.bold: true
@@ -264,7 +265,7 @@ Item {
         visible: !!(root.event && root.event.description)
         text: root.event ? root.event.description : ""
         color: root.foreground
-        linkColor: Color.accent
+        linkColor: Commons.Color.accent
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
         onLinkActivated: function(link) { root.openExternal(link) }
